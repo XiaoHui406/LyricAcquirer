@@ -70,45 +70,148 @@
 		ref
 	} from "vue";
 	import {
+		onShow
+	} from '@dcloudio/uni-app'
+	import {
 		neteaseSearchSongs
 	} from "../../api/neteaseMusicApi.js"
 	import {
 		qqSearchSongs
 	} from "../../api/qqMusicApi.js"
 
+	// ============ 页面数据定义 ============
+	
+	/** 搜索结果列表 */
 	let searchSongs = ref([])
+	
+	/** 用户输入的歌曲信息 */
 	const songInfo = ref('');
+	
 	const artistName = ref('');
 	const songUrl = ref('');
-	const neteaseLimit = 5
-	const qqLimit = 5
+	
+	/** 网易云音乐搜索数量限制 */
+	let neteaseLimit = ref(5)
+	
+	/** QQ音乐搜索数量限制 */
+	let qqLimit = ref(5)
+	
+	/** 各平台的启用状态 */
+	let enabledPlatforms = ref({
+		netease: true,
+		qq: true
+	})
+	
+	/** 平台搜索优先级顺序，数组中靠前的平台优先显示结果 */
+	let platformOrder = ref(['netease', 'qq'])
 
+	// ============ 设置管理 ============
+	
+	/**
+	 * 从本地存储加载用户设置
+	 * 读取的设置包括：
+	 * - searchCounts: 各平台搜索数量限制
+	 * - searchPlatforms: 平台启用状态
+	 * - platformOrder: 平台搜索优先级顺序
+	 */
+	const loadSettings = () => {
+		uni.getStorage({
+			key: 'appSettings',
+			success: (res) => {
+				const settings = res.data
+				if (settings) {
+					// 读取搜索数量设置
+					if (settings.searchCounts) {
+						neteaseLimit.value = settings.searchCounts.netease || 5
+						qqLimit.value = settings.searchCounts.qq || 5
+					}
+					// 读取平台启用状态
+					if (settings.searchPlatforms) {
+						enabledPlatforms.value = settings.searchPlatforms
+					}
+					// 读取平台优先级顺序
+					if (settings.platformOrder) {
+						platformOrder.value = settings.platformOrder
+					}
+				}
+			}
+		})
+	}
+
+	/**
+	 * 页面显示时加载设置
+	 * 每次从设置页面返回时，都会重新加载最新的设置
+	 */
+	onShow(() => {
+		loadSettings()
+	})
+
+	// ============ 搜索功能 ============
+	
+	/**
+	 * 执行搜索操作
+	 * 根据用户设置，按照优先级顺序搜索启用的平台
+	 * 搜索结果按照平台优先级排序显示
+	 */
 	async function handleSearch() {
+		// 验证输入不为空
 		if (songInfo.value.length == 0) return
+		
+		// 显示加载提示
 		uni.showLoading({
 			title: '搜索中...'
 		})
 
+		// 清空之前的搜索结果
 		searchSongs.value.splice(0, searchSongs.value.length)
 
-		const neteaseSongs = await neteaseSearchSongs(songInfo.value, neteaseLimit)
-		const qqSongs = await qqSearchSongs(songInfo.value, qqLimit)
-		neteaseSongs.forEach((song) => {
-			searchSongs.value.push(song)
-		})
-		qqSongs.forEach((song) => {
-			searchSongs.value.push(song)
+		// 构建平台搜索函数映射表
+		const searchPromises = []
+		const platformMap = {
+			netease: () => neteaseSearchSongs(songInfo.value, neteaseLimit.value),
+			qq: () => qqSearchSongs(songInfo.value, qqLimit.value)
+		}
+
+		// 按照设置的优先级顺序构建搜索请求
+		// 只搜索已启用的平台
+		for (const platform of platformOrder.value) {
+			if (enabledPlatforms.value[platform] && platformMap[platform]) {
+				// 将平台标识和搜索结果一起返回，便于按顺序合并
+				searchPromises.push(
+					platformMap[platform]().then(songs => ({ platform, songs }))
+				)
+			}
+		}
+
+		// 并发执行所有搜索请求
+		const results = await Promise.all(searchPromises)
+
+		// 按照平台优先级顺序合并搜索结果
+		results.forEach(({ platform, songs }) => {
+			songs.forEach((song) => {
+				searchSongs.value.push(song)
+			})
 		})
 
+		// 隐藏加载提示
 		uni.hideLoading()
 	};
 
+	/**
+	 * 跳转到歌词预览页面
+	 * @param {Object} song - 歌曲信息对象
+	 */
 	async function toLyricPreview(song) {
 		uni.navigateTo({
 			url: "/pages/LyricPreview/LyricPreview?song=" + JSON.stringify(song)
 		})
 	}
 
+	/**
+	 * 根据平台名称获取对应的图标
+	 * @param {string} platform - 平台名称
+	 * @returns {string} 图标路径
+	 */
 	const getPlatformIcon = (platform) => {
 		switch (platform) {
 			case '网易云音乐':
@@ -122,23 +225,38 @@
 		}
 	}
 
+	// ============ 菜单功能 ============
+	
+	/** 菜单显示状态 */
 	const showMenu = ref(false);
 
+	/**
+	 * 切换菜单显示/隐藏
+	 */
 	const toggleMenu = () => {
 		showMenu.value = !showMenu.value;
 	};
 
+	/**
+	 * 关闭菜单
+	 */
 	const closeMenu = () => {
 		showMenu.value = false;
 	};
 
+	/**
+	 * 处理菜单项点击事件
+	 * @param {string} type - 菜单类型（setting 或 about）
+	 */
 	const handleMenuClick = (type) => {
 		closeMenu();
 		if (type === 'setting') {
+			// 跳转到设置页面
 			uni.navigateTo({
 				url: '/pages/settings/settings'
 			});
 		} else if (type === 'about') {
+			// 跳转到关于页面
 			uni.navigateTo({
 				url: '/pages/about/about'
 			});

@@ -1,11 +1,21 @@
+/**
+ * 处理歌词文本，合并原文和翻译
+ * @param {string} lyric - 原文歌词
+ * @param {string} tlyric - 翻译歌词
+ * @returns {string} 合并后的歌词文本
+ */
 export const handleLyric = (lyric, tlyric) => {
+	// 如果没有翻译，直接返回原文并去除双斜线
 	if (tlyric.length == 0) return lyric.trim().replace(/\/\//g, "")
 
+	// 按行分割原文和翻译歌词
 	const lyricLines = lyric.split('\n');
 	const tlyricLines = tlyric.split('\n');
 
+	// 创建时间戳映射表，存储每个时间戳对应的原文和翻译
 	const lyricMap = {};
 
+	// 解析原文歌词，建立时间戳到歌词的映射
 	for (const line of lyricLines) {
 		const match = line.match(/^(\[.*?\])/);
 		if (match) {
@@ -22,6 +32,7 @@ export const handleLyric = (lyric, tlyric) => {
 		}
 	}
 
+	// 解析翻译歌词，将翻译添加到对应时间戳
 	for (const line of tlyricLines) {
 		const match = line.match(/^(\[.*?\])/);
 		if (match) {
@@ -38,24 +49,35 @@ export const handleLyric = (lyric, tlyric) => {
 		}
 	}
 
+	// 按时间戳排序
 	const sortedTimestamps = Object.keys(lyricMap).sort();
 	let output = '';
 
+	// 按顺序组合原文和翻译
 	for (const timestamp of sortedTimestamps) {
 		const {
 			lyric,
 			tlyric
 		} = lyricMap[timestamp];
+		// 如果有原文，添加原文行
 		if (lyric) {
 			output += `${timestamp} ${lyric}\n`;
 		}
+		// 如果有翻译，添加翻译行
 		if (tlyric) {
 			output += `${timestamp} ${tlyric}\n`;
 		}
 	}
+	// 去除首尾空白和双斜线
 	return output.trim().replace(/\/\//g, "");
 }
 
+/**
+ * 保存文件到本地
+ * 根据不同平台调用不同的保存方法
+ * @param {string} content - 文件内容
+ * @param {string} filename - 文件名
+ */
 export const saveFile = async (content, filename) => {
 	// #ifdef H5
 	saveForH5(content, filename)
@@ -66,31 +88,51 @@ export const saveFile = async (content, filename) => {
 	// #endif
 }
 
+/**
+ * H5平台保存文件
+ * 创建下载链接触发浏览器下载
+ * @param {string} content - 文件内容
+ * @param {string} filename - 文件名
+ */
 const saveForH5 = (content, filename) => {
+	// 创建Blob对象
 	const blob = new Blob([content], {
 		type: "text/plain;charset=utf-8"
 	});
+	// 创建下载链接
 	const link = document.createElement("a");
 	link.href = URL.createObjectURL(blob);
 	link.download = filename;
+	// 触发下载
 	link.click();
+	// 释放URL对象
 	URL.revokeObjectURL(link.href);
+	// 显示成功提示
 	uni.showToast({
 		title: "文件已保存到下载目录"
 	});
 }
 
+/**
+ * APP平台保存文件
+ * 使用plus API保存到下载目录
+ * @param {string} content - 文件内容
+ * @param {string} filename - 文件名
+ */
 const saveForApp = async (content, filename) => {
 	try {
-		// 将内容写入文件
+		// 构建文件路径（下载目录）
 		const tempPath = `${plus.io.PUBLIC_DOWNLOADS}/${filename}`;
+		// 写入文件
 		await writeFile(tempPath, content);
 
+		// 显示成功提示
 		uni.showToast({
 			title: `保存成功`,
 			duration: 1500
 		});
 	} catch (error) {
+		// 显示错误信息
 		uni.showModal({
 			content: "保存失败：" + error.message,
 			showCancel: false
@@ -98,17 +140,28 @@ const saveForApp = async (content, filename) => {
 	}
 }
 
+/**
+ * 写入文件内容
+ * 使用plus文件系统API写入文件
+ * @param {string} path - 文件路径
+ * @param {string} content - 文件内容
+ * @returns {Promise} 写入完成的Promise
+ */
 const writeFile = (path, content) => {
 	return new Promise((resolve, reject) => {
+		// 请求文件系统
 		plus.io.requestFileSystem(plus.io.PUBLIC_DOWNLOADS, fs => {
+			// 获取文件对象
 			fs.root.getFile(
 				path, {
 					create: true
 				},
 				fileEntry => {
+					// 创建写入器
 					fileEntry.createWriter(writer => {
 						writer.onwriteend = resolve;
 						writer.onerror = reject;
+						// 写入内容
 						writer.write(content);
 					}, reject);
 				},
