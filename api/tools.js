@@ -1,8 +1,8 @@
 /**
- * 处理歌词文本，合并原文和翻译
+ * 处理歌词文本，合并原文和翻译（LRC格式）
  * @param {string} lyric - 原文歌词
  * @param {string} tlyric - 翻译歌词
- * @returns {string} 合并后的歌词文本
+ * @returns {string} 合并后的LRC格式歌词文本
  */
 export const handleLyric = (lyric, tlyric) => {
 	// 如果没有翻译，直接返回原文并去除双斜线
@@ -70,6 +70,152 @@ export const handleLyric = (lyric, tlyric) => {
 	}
 	// 去除首尾空白和双斜线
 	return output.trim().replace(/\/\//g, "");
+}
+
+/**
+ * 将LRC时间戳转换为SRT时间戳格式
+ * LRC格式: [mm:ss.xx]
+ * SRT格式: hh:mm:ss,xxx
+ * @param {string} lrcTime - LRC格式时间戳，如 [00:12.34]
+ * @returns {string} SRT格式时间戳，如 00:00:12,340
+ */
+const lrcTimeToSrtTime = (lrcTime) => {
+	// 移除方括号并解析时间
+	const timeStr = lrcTime.replace(/[\[\]]/g, '');
+	const parts = timeStr.split(':');
+	if (parts.length !== 2) return '00:00:00,000';
+	
+	const minutes = parseInt(parts[0]) || 0;
+	const secParts = parts[1].split('.');
+	const seconds = parseInt(secParts[0]) || 0;
+	const centiseconds = parseInt(secParts[1]) || 0;
+	
+	// 计算总时间（转换为小时、分钟、秒）
+	const totalSeconds = minutes * 60 + seconds;
+	const hours = Math.floor(totalSeconds / 3600);
+	const mins = Math.floor((totalSeconds % 3600) / 60);
+	const secs = totalSeconds % 60;
+	const milliseconds = centiseconds * 10; // 百分之一秒转毫秒
+	
+	// 格式化为 hh:mm:ss,xxx
+	return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(milliseconds).padStart(3, '0')}`;
+}
+
+/**
+ * 处理歌词文本，合并原文和翻译（SRT格式）
+ * @param {string} lyric - 原文歌词
+ * @param {string} tlyric - 翻译歌词
+ * @returns {string} 合并后的SRT格式歌词文本
+ */
+export const handleLyricToSrt = (lyric, tlyric) => {
+	// 如果没有翻译，只处理原文
+	const hasTranslation = tlyric && tlyric.length > 0;
+	
+	// 按行分割原文和翻译歌词
+	const lyricLines = lyric.split('\n');
+	const tlyricLines = hasTranslation ? tlyric.split('\n') : [];
+	
+	// 创建时间戳映射表，存储每个时间戳对应的原文和翻译
+	const lyricMap = {};
+	
+	// 解析原文歌词，建立时间戳到歌词的映射
+	for (const line of lyricLines) {
+		const match = line.match(/^(\[.*?\])/);
+		if (match) {
+			const timestamp = match[1];
+			const text = line.slice(timestamp.length).trim();
+			// 过滤掉空行和元数据
+			if (text && !text.startsWith('[')) {
+				if (!lyricMap[timestamp]) {
+					lyricMap[timestamp] = {
+						lyric: text,
+						tlyric: ''
+					};
+				} else {
+					lyricMap[timestamp].lyric = text;
+				}
+			}
+		}
+	}
+	
+	// 解析翻译歌词，将翻译添加到对应时间戳
+	if (hasTranslation) {
+		for (const line of tlyricLines) {
+			const match = line.match(/^(\[.*?\])/);
+			if (match) {
+				const timestamp = match[1];
+				const text = line.slice(timestamp.length).trim();
+				if (text && !text.startsWith('[')) {
+					if (!lyricMap[timestamp]) {
+						lyricMap[timestamp] = {
+							lyric: '',
+							tlyric: text
+						};
+					} else {
+						lyricMap[timestamp].tlyric = text;
+					}
+				}
+			}
+		}
+	}
+	
+	// 按时间戳排序
+	const sortedTimestamps = Object.keys(lyricMap).sort();
+	
+	// 构建SRT格式输出
+	let output = '';
+	let index = 1;
+	
+	for (let i = 0; i < sortedTimestamps.length; i++) {
+		const timestamp = sortedTimestamps[i];
+		const nextTimestamp = sortedTimestamps[i + 1];
+		
+		const { lyric: lyricText, tlyric: tlyricText } = lyricMap[timestamp];
+		
+		// 跳过空内容
+		if (!lyricText && !tlyricText) continue;
+		
+		// 序号
+		output += `${index}\n`;
+		
+		// 时间范围：开始时间 --> 结束时间
+		const startTime = lrcTimeToSrtTime(timestamp);
+		// 如果有下一个时间戳，使用它作为结束时间；否则默认加3秒
+		let endTime;
+		if (nextTimestamp) {
+			endTime = lrcTimeToSrtTime(nextTimestamp);
+		} else {
+			// 最后一句歌词，默认持续3秒
+			const lastTimeParts = startTime.split(/[:,]/);
+			const hours = parseInt(lastTimeParts[0]);
+			const mins = parseInt(lastTimeParts[1]);
+			const secs = parseInt(lastTimeParts[2]) + 3;
+			const ms = lastTimeParts[3];
+			
+			const newSecs = secs % 60;
+			const newMins = mins + Math.floor(secs / 60);
+			const newHours = hours + Math.floor(newMins / 60);
+			const finalMins = newMins % 60;
+			
+			endTime = `${String(newHours).padStart(2, '0')}:${String(finalMins).padStart(2, '0')}:${String(newSecs).padStart(2, '0')},${ms}`;
+		}
+		
+		output += `${startTime} --> ${endTime}\n`;
+		
+		// 歌词内容（原文和翻译）
+		if (lyricText) {
+			output += `${lyricText}\n`;
+		}
+		if (tlyricText) {
+			output += `${tlyricText}\n`;
+		}
+		
+		// 空行分隔
+		output += '\n';
+		index++;
+	}
+	
+	return output.trim();
 }
 
 /**

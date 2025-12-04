@@ -31,6 +31,7 @@
 	} from "../../api/qqMusicApi.js"
 	import {
 		handleLyric,
+		handleLyricToSrt,
 		saveFile
 	} from "../../api/tools.js"
 
@@ -108,9 +109,15 @@
 			const lyric = lyricData['lyric']
 			// 根据设置决定是否使用翻译，如果不启用翻译则传入空字符串
 			const tlyric = getTranslation.value ? lyricData['tlyric'] : ''
-			// 合并原文和翻译歌词
-			const translateLyric = handleLyric(lyric, tlyric)
-			lyricText = translateLyric
+			
+			// 根据设置的格式调用不同的处理函数
+			if (lyricFormat.value === 'srt') {
+				// 转换为SRT格式
+				lyricText = handleLyricToSrt(lyric, tlyric)
+			} else {
+				// 默认使用LRC格式
+				lyricText = handleLyric(lyric, tlyric)
+			}
 		}
 	}
 
@@ -170,11 +177,19 @@
 	// ============ 歌词解析 ============
 	
 	/**
-	 * 解析歌词文本为分组结构
+	 * 解析歌词文本为分组结构。用于页面预览显示
 	 * 将带时间戳的歌词按时间分组，每组包含原文和翻译
+	 * 注意：只支持LRC格式的解析，SRT格式仅用于下载
 	 * @param {string} lyricStr - 原始歌词文本
 	 */
 	const parseLyrics = (lyricStr) => {
+		// 如果SRT格式，需要特殊处理
+		if (lyricFormat.value === 'srt') {
+			parseSrtLyrics(lyricStr);
+			return;
+		}
+		
+		// LRC格式解析
 		const groups = [];
 		let currentTime = '';
 
@@ -210,6 +225,39 @@
 
 		// 更新页面显示数据
 		lyricGroups.value = merged;
+	};
+	
+	/**
+	 * 解析SRT格式歌词为分组结构
+	 * SRT格式示例：
+	 * 1
+	 * 00:00:12,340 --> 00:00:15,230
+	 * 歌词内容
+	 * @param {string} srtStr - SRT格式歌词文本
+	 */
+	const parseSrtLyrics = (srtStr) => {
+		const groups = [];
+		const blocks = srtStr.split('\n\n'); // SRT用空行分隔各个字幕块
+		
+		for (const block of blocks) {
+			const lines = block.trim().split('\n');
+			if (lines.length < 3) continue; // 至少需要：序号、时间、歌词
+			
+			// 跳过序号行（第一行）
+			const timeLine = lines[1]; // 第二行是时间行
+			const lyricLines = lines.slice(2); // 从第三行开始是歌词内容
+			
+			// 提取开始时间作为显示的时间戳
+			const timeMatch = timeLine.match(/^([\d:,]+)/);
+			if (timeMatch) {
+				groups.push({
+					time: timeMatch[1], // 使用SRT时间格式显示
+					lines: lyricLines
+				});
+			}
+		}
+		
+		lyricGroups.value = groups;
 	};
 </script>
 
