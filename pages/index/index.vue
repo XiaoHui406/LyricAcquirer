@@ -1,8 +1,6 @@
 <template>
 	<view class="container" @click.stop="closeMenu">
-		<!-- 状态栏占位，防止内容与系统状态栏重叠 -->
-		<view class="status-bar" :style="{ height: statusBarHeight + 'px' }"></view>
-		
+
 		<view class="custom-navbar">
 			<view class="navbar-more"></view>
 			<view class="navbar-title">歌词搜索</view>
@@ -84,36 +82,36 @@
 	} from "../../api/qqMusicApi.js"
 
 	// ============ 页面数据定义 ============
-	
+
 	/** 状态栏高度，用于适配App端的状态栏 */
 	const statusBarHeight = ref(0)
-	
+
 	/** 搜索结果列表 */
 	let searchSongs = ref([])
-	
+
 	/** 用户输入的歌曲信息 */
 	const songInfo = ref('');
-	
+
 	const artistName = ref('');
 	const songUrl = ref('');
-	
+
 	/** 网易云音乐搜索数量限制 */
 	let neteaseLimit = ref(5)
-	
+
 	/** QQ音乐搜索数量限制 */
 	let qqLimit = ref(5)
-	
+
 	/** 各平台的启用状态 */
 	let enabledPlatforms = ref({
 		netease: true,
 		qq: true
 	})
-	
+
 	/** 平台搜索优先级顺序，数组中靠前的平台优先显示结果 */
 	let platformOrder = ref(['netease', 'qq'])
 
 	// ============ 设置管理 ============
-	
+
 	/**
 	 * 从本地存储加载用户设置
 	 * 读取的设置包括：
@@ -152,7 +150,7 @@
 	onShow(() => {
 		loadSettings()
 	})
-	
+
 	/**
 	 * 组件挂载时获取状态栏高度
 	 */
@@ -163,7 +161,7 @@
 	})
 
 	// ============ 搜索功能 ============
-	
+
 	/**
 	 * 执行搜索操作
 	 * 根据用户设置，按照优先级顺序搜索启用的平台
@@ -172,7 +170,7 @@
 	async function handleSearch() {
 		// 验证输入不为空
 		if (songInfo.value.length == 0) return
-		
+
 		// 显示加载提示
 		uni.showLoading({
 			title: '搜索中...'
@@ -194,7 +192,10 @@
 			if (enabledPlatforms.value[platform] && platformMap[platform]) {
 				// 将平台标识和搜索结果一起返回，便于按顺序合并
 				searchPromises.push(
-					platformMap[platform]().then(songs => ({ platform, songs }))
+					platformMap[platform]().then(songs => ({
+						platform,
+						songs
+					}))
 				)
 			}
 		}
@@ -203,7 +204,10 @@
 		const results = await Promise.all(searchPromises)
 
 		// 按照平台优先级顺序合并搜索结果
-		results.forEach(({ platform, songs }) => {
+		results.forEach(({
+			platform,
+			songs
+		}) => {
 			songs.forEach((song) => {
 				searchSongs.value.push(song)
 			})
@@ -242,7 +246,7 @@
 	}
 
 	// ============ 菜单功能 ============
-	
+
 	/** 菜单显示状态 */
 	const showMenu = ref(false);
 
@@ -286,8 +290,6 @@
 	}
 
 	.custom-navbar {
-		position: fixed;
-		top: var(--status-bar-height);
 		left: 0;
 		right: 0;
 		height: 100rpx;
@@ -366,12 +368,13 @@
 	.container {
 		background-color: #FFFFFF;
 		padding: 30rpx;
-		padding-top: calc(120rpx + var(--status-bar-height));
+		/* padding-top: calc(120rpx + var(--status-bar-height)); */
+		padding-top: var(--status-bar-height);
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		box-sizing: border-box;
-		--status-bar-height: 0px;
+		/* --status-bar-height: 0px; */
 	}
 
 	.search-section {
