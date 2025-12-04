@@ -75,7 +75,7 @@
 						</view>
 					</view>
 				</view>
-				
+
 				<!-- 文件命名格式选择 -->
 				<view class="setting-item">
 					<view class="item-label">文件命名格式</view>
@@ -183,7 +183,7 @@
 
 	/** 歌词下载格式：lrc 或 srt */
 	const lyricFormat = ref('lrc')
-	
+
 	/** 文件命名格式：artist-song, song-artist, song, artist */
 	const filenameFormat = ref('artist-song')
 
@@ -212,7 +212,7 @@
 	 * 切换搜索平台的启用状态
 	 * @param {string} platform - 平台标识（netease 或 qq）
 	 */
-	const togglePlatform = (platform) => { 
+	const togglePlatform = (platform) => {
 		searchPlatforms.value[platform] = !searchPlatforms.value[platform]
 		// 立即保存设置
 		saveSettings()
@@ -274,7 +274,7 @@
 		lyricFormat.value = format
 		saveSettings()
 	}
-	
+
 	/**
 	 * 设置文件命名格式
 	 * @param {string} format - 命名格式（artist-song, song-artist, song, artist）
@@ -336,7 +336,7 @@
 	}
 
 	// ============ 生命周期钩子 ============
-		
+
 	/**
 	 * 页面加载时从本地存储读取保存的设置
 	 * 如果本地没有保存的设置，则使用默认值
@@ -344,7 +344,7 @@
 	onLoad(() => {
 		// 获取保存位置信息
 		updateSaveLocation()
-			
+
 		uni.getStorage({
 			key: 'appSettings',
 			success: (res) => {
@@ -356,14 +356,15 @@
 					searchCounts.value = settings.searchCounts || searchCounts.value
 					lyricFormat.value = settings.lyricFormat || lyricFormat.value
 					filenameFormat.value = settings.filenameFormat || filenameFormat.value
-					getTranslation.value = settings.getTranslation !== undefined ? settings.getTranslation : getTranslation.value
+					getTranslation.value = settings.getTranslation !== undefined ? settings
+						.getTranslation : getTranslation.value
 					autoUpdate.value = settings.autoUpdate || autoUpdate.value
 					darkMode.value = settings.darkMode || darkMode.value
 				}
 			}
 		})
 	})
-		
+
 	/**
 	 * 更新歌词保存位置显示
 	 * 根据不同平台显示相应的保存路径
@@ -372,7 +373,7 @@
 		// #ifdef H5
 		saveLocation.value = '浏览器默认下载目录'
 		// #endif
-			
+
 		// #ifdef APP-PLUS
 		const systemInfo = uni.getSystemInfoSync()
 		if (systemInfo.platform === 'android') {
@@ -567,16 +568,16 @@
 		color: #fff;
 		border-color: #007aff;
 	}
-	
+
 	/* 文件命名格式选项 */
 	.filename-options {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 8px;
 	}
-	
+
 	.filename-option {
-		flex: 0 0 calc(50% - 4px);
+		flex: 0 0 calc(50% - 8px);
 		height: 36px;
 		line-height: 36px;
 		text-align: center;
@@ -586,7 +587,7 @@
 		background-color: #fff;
 		transition: all 0.3s;
 	}
-	
+
 	.filename-option.active {
 		background-color: #007aff;
 		color: #fff;
@@ -613,4 +614,4 @@
 		font-size: 16px;
 		font-weight: bold;
 	}
-</style>
+</style>s
