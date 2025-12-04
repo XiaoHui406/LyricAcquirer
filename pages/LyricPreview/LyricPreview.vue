@@ -62,6 +62,9 @@
 	/** 歌词格式（lrc 或 srt） */
 	let lyricFormat = ref('lrc')
 	
+	/** 文件命名格式（artist-song, song-artist, song, artist） */
+	let filenameFormat = ref('artist-song')
+	
 	/** 是否获取歌词翻译 */
 	let getTranslation = ref(true)
 
@@ -124,6 +127,38 @@
 	// ============ 生命周期钩子 ============
 	
 	/**
+	 * 根据命名格式生成文件名
+	 * @param {Object} song - 歌曲信息对象
+	 * @param {string} format - 文件格式（lrc/srt）
+	 * @param {string} nameFormat - 命名格式（artist-song, song-artist, song, artist）
+	 * @returns {string} 文件名
+	 */
+	const generateFilename = (song, format, nameFormat) => {
+		const artist = song.artists.replace(/ \/ /, ",")
+		const songName = song.name
+		
+		let basename = ''
+		switch (nameFormat) {
+			case 'artist-song':
+				basename = `${artist} - ${songName}`
+				break
+			case 'song-artist':
+				basename = `${songName} - ${artist}`
+				break
+			case 'song':
+				basename = songName
+				break
+			case 'artist':
+				basename = artist
+				break
+			default:
+				basename = `${artist} - ${songName}`
+		}
+		
+		return `${basename}.${format}`
+	}
+	
+	/**
 	 * 页面加载时执行
 	 * 1. 从本地存储读取用户设置
 	 * 2. 根据设置生成文件名
@@ -141,13 +176,14 @@
 				if (settings) {
 					// 读取歌词格式设置，默认为 lrc
 					lyricFormat.value = settings.lyricFormat || 'lrc'
+					// 读取文件命名格式设置，默认为 artist-song
+					filenameFormat.value = settings.filenameFormat || 'artist-song'
 					// 读取翻译设置，默认为 true
 					getTranslation.value = settings.getTranslation !== undefined ? settings.getTranslation : true
 				}
 				
 				// 根据设置的格式生成文件名
-				// 格式：歌手 - 歌名.扩展名
-				filename = song.artists.replace(/ \/ /, ",") + " - " + song.name + "." + lyricFormat.value
+				filename = generateFilename(song, lyricFormat.value, filenameFormat.value)
 				
 				// 显示加载提示
 				uni.showLoading({
@@ -161,7 +197,7 @@
 			},
 			fail: () => {
 				// 如果未找到设置，使用默认值
-				filename = song.artists.replace(/ \/ /, ",") + " - " + song.name + "." + lyricFormat.value
+				filename = generateFilename(song, lyricFormat.value, filenameFormat.value)
 				
 				uni.showLoading({
 					title: '获取歌词中...'

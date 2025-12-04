@@ -1,5 +1,8 @@
 <template>
 	<view class="container" @click.stop="closeMenu">
+		<!-- 状态栏占位，防止内容与系统状态栏重叠 -->
+		<view class="status-bar" :style="{ height: statusBarHeight + 'px' }"></view>
+		
 		<view class="custom-navbar">
 			<view class="navbar-more"></view>
 			<view class="navbar-title">歌词搜索</view>
@@ -67,7 +70,8 @@
 
 <script setup>
 	import {
-		ref
+		ref,
+		onMounted
 	} from "vue";
 	import {
 		onShow
@@ -80,6 +84,9 @@
 	} from "../../api/qqMusicApi.js"
 
 	// ============ 页面数据定义 ============
+	
+	/** 状态栏高度，用于适配App端的状态栏 */
+	const statusBarHeight = ref(0)
 	
 	/** 搜索结果列表 */
 	let searchSongs = ref([])
@@ -144,6 +151,15 @@
 	 */
 	onShow(() => {
 		loadSettings()
+	})
+	
+	/**
+	 * 组件挂载时获取状态栏高度
+	 */
+	onMounted(() => {
+		// 获取系统信息，读取状态栏高度
+		const systemInfo = uni.getSystemInfoSync()
+		statusBarHeight.value = systemInfo.statusBarHeight || 0
 	})
 
 	// ============ 搜索功能 ============
@@ -271,7 +287,7 @@
 
 	.custom-navbar {
 		position: fixed;
-		top: 0;
+		top: var(--status-bar-height);
 		left: 0;
 		right: 0;
 		height: 100rpx;
@@ -311,7 +327,7 @@
 	.menu-popup {
 		position: absolute;
 		right: 30rpx;
-		top: 100rpx;
+		top: calc(100rpx + var(--status-bar-height));
 		background: #fff;
 		border-radius: 12rpx;
 		box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.12);
@@ -350,11 +366,12 @@
 	.container {
 		background-color: #FFFFFF;
 		padding: 30rpx;
-		padding-top: 120rpx;
+		padding-top: calc(120rpx + var(--status-bar-height));
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		box-sizing: border-box;
+		--status-bar-height: 0px;
 	}
 
 	.search-section {

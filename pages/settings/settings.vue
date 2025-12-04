@@ -75,6 +75,29 @@
 						</view>
 					</view>
 				</view>
+				
+				<!-- 文件命名格式选择 -->
+				<view class="setting-item">
+					<view class="item-label">文件命名格式</view>
+					<view class="filename-options">
+						<view class="filename-option" :class="{ 'active': filenameFormat === 'artist-song' }"
+							@click="setFilenameFormat('artist-song')">
+							歌手 - 歌曲名
+						</view>
+						<view class="filename-option" :class="{ 'active': filenameFormat === 'song-artist' }"
+							@click="setFilenameFormat('song-artist')">
+							歌曲名 - 歌手
+						</view>
+						<view class="filename-option" :class="{ 'active': filenameFormat === 'song' }"
+							@click="setFilenameFormat('song')">
+							歌曲名
+						</view>
+						<view class="filename-option" :class="{ 'active': filenameFormat === 'artist' }"
+							@click="setFilenameFormat('artist')">
+							歌手
+						</view>
+					</view>
+				</view>
 
 				<!-- 歌词翻译选项 -->
 				<view class="setting-item">
@@ -92,13 +115,13 @@
 				<!-- <view class="group-title">其他设置</view> -->
 
 				<!-- 歌词保存位置 -->
-				<!-- <view class="setting-item">
+				<view class="setting-item">
 					<view class="item-label">歌词保存位置（暂无法设置）</view>
 					<view class="location-value">
 						{{ saveLocation }}
 						<text class="iconfont icon-arrow-right"></text>
 					</view>
-				</view> -->
+				</view>
 
 				<!-- 自动检查更新 -->
 				<!-- <view class="setting-item">
@@ -124,7 +147,7 @@
 	} from '@dcloudio/uni-app'
 
 	// ============ 页面数据定义 ============
-	
+
 	/**
 	 * 搜索平台启用状态
 	 * netease: 网易云音乐是否启用
@@ -140,7 +163,7 @@
 	 * 数组中靠前的平台优先级更高，搜索结果会优先显示
 	 */
 	const platformOrder = ref(['netease', 'qq'])
-	
+
 	/**
 	 * 平台标识与中文名称的映射关系
 	 */
@@ -161,20 +184,23 @@
 	/** 歌词下载格式：lrc 或 srt */
 	const lyricFormat = ref('lrc')
 	
+	/** 文件命名格式：artist-song, song-artist, song, artist */
+	const filenameFormat = ref('artist-song')
+
 	/** 是否获取歌词翻译 */
 	const getTranslation = ref(true)
-	
+
 	/** 歌词保存位置（当前版本暂不可修改） */
-	const saveLocation = ref('内部存储/歌词助手/')
-	
+	const saveLocation = ref('获取中...')
+
 	/** 是否自动检查更新 */
 	const autoUpdate = ref(true)
-	
+
 	/** 是否启用深色模式 */
 	const darkMode = ref(false)
 
 	// ============ 事件处理函数 ============
-	
+
 	/**
 	 * 返回上一页
 	 */
@@ -186,7 +212,7 @@
 	 * 切换搜索平台的启用状态
 	 * @param {string} platform - 平台标识（netease 或 qq）
 	 */
-	const togglePlatform = (platform) => {
+	const togglePlatform = (platform) => { 
 		searchPlatforms.value[platform] = !searchPlatforms.value[platform]
 		// 立即保存设置
 		saveSettings()
@@ -204,7 +230,7 @@
 				platformOrder.value[index + 1],
 				platformOrder.value[index]
 			]
-		} 
+		}
 		// 如果是最后一个元素，与前一个交换位置
 		else if (index > 0) {
 			[platformOrder.value[index], platformOrder.value[index - 1]] = [
@@ -248,6 +274,15 @@
 		lyricFormat.value = format
 		saveSettings()
 	}
+	
+	/**
+	 * 设置文件命名格式
+	 * @param {string} format - 命名格式（artist-song, song-artist, song, artist）
+	 */
+	const setFilenameFormat = (format) => {
+		filenameFormat.value = format
+		saveSettings()
+	}
 
 	/**
 	 * 切换是否获取歌词翻译
@@ -279,6 +314,7 @@
 	 * - platformOrder: 平台搜索优先级顺序
 	 * - searchCounts: 各平台搜索数量限制
 	 * - lyricFormat: 歌词下载格式
+	 * - filenameFormat: 文件命名格式
 	 * - getTranslation: 是否获取翻译
 	 * - autoUpdate: 是否自动更新
 	 * - darkMode: 是否深色模式
@@ -291,6 +327,7 @@
 				platformOrder: platformOrder.value,
 				searchCounts: searchCounts.value,
 				lyricFormat: lyricFormat.value,
+				filenameFormat: filenameFormat.value,
 				getTranslation: getTranslation.value,
 				autoUpdate: autoUpdate.value,
 				darkMode: darkMode.value
@@ -299,12 +336,15 @@
 	}
 
 	// ============ 生命周期钩子 ============
-	
+		
 	/**
 	 * 页面加载时从本地存储读取保存的设置
 	 * 如果本地没有保存的设置，则使用默认值
 	 */
 	onLoad(() => {
+		// 获取保存位置信息
+		updateSaveLocation()
+			
 		uni.getStorage({
 			key: 'appSettings',
 			success: (res) => {
@@ -315,13 +355,36 @@
 					platformOrder.value = settings.platformOrder || platformOrder.value
 					searchCounts.value = settings.searchCounts || searchCounts.value
 					lyricFormat.value = settings.lyricFormat || lyricFormat.value
-					getTranslation.value = settings.getTranslation || getTranslation.value
+					filenameFormat.value = settings.filenameFormat || filenameFormat.value
+					getTranslation.value = settings.getTranslation !== undefined ? settings.getTranslation : getTranslation.value
 					autoUpdate.value = settings.autoUpdate || autoUpdate.value
 					darkMode.value = settings.darkMode || darkMode.value
 				}
 			}
 		})
 	})
+		
+	/**
+	 * 更新歌词保存位置显示
+	 * 根据不同平台显示相应的保存路径
+	 */
+	const updateSaveLocation = () => {
+		// #ifdef H5
+		saveLocation.value = '浏览器默认下载目录'
+		// #endif
+			
+		// #ifdef APP-PLUS
+		const systemInfo = uni.getSystemInfoSync()
+		if (systemInfo.platform === 'android') {
+			saveLocation.value = '内部存储/Android/data/uni.UNIB130330/downloads'
+		} else if (systemInfo.platform === 'ios') {
+			// iOS路径暂时不显示，等待测试
+			saveLocation.value = 'App内部存储'
+		} else {
+			saveLocation.value = 'App内部存储'
+		}
+		// #endif
+	}
 </script>
 
 <style scoped>
@@ -500,6 +563,31 @@
 	}
 
 	.format-option.active {
+		background-color: #007aff;
+		color: #fff;
+		border-color: #007aff;
+	}
+	
+	/* 文件命名格式选项 */
+	.filename-options {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	
+	.filename-option {
+		flex: 0 0 calc(50% - 4px);
+		height: 36px;
+		line-height: 36px;
+		text-align: center;
+		border: 1px solid #ddd;
+		border-radius: 8px;
+		font-size: 13px;
+		background-color: #fff;
+		transition: all 0.3s;
+	}
+	
+	.filename-option.active {
 		background-color: #007aff;
 		color: #fff;
 		border-color: #007aff;
